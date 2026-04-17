@@ -99,7 +99,9 @@ describe('Auth', () => {
     const cookies = res.headers['set-cookie'];
     if (cookies) {
       const cleared = (Array.isArray(cookies) ? cookies : [cookies]).some(
-        (c: string) => c.includes('oddzilla_refresh') && c.includes('Max-Age=0'),
+        (c: string) =>
+          c.includes('oddzilla_refresh') &&
+          (c.includes('Max-Age=0') || c.includes('Expires=Thu, 01 Jan 1970')),
       );
       expect(cleared).toBe(true);
     }
