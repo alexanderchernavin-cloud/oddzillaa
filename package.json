@@ -10,7 +10,7 @@
   "packageManager": "pnpm@10.32.1",
   "scripts": {
     "dev": "pnpm build:packages && pnpm -r --parallel --filter=\"@oddzilla/api\" --filter=\"@oddzilla/web\" --filter=\"@oddzilla/shared\" --filter=\"@oddzilla/db\" run dev",
-    "build:packages": "pnpm -F @oddzilla/shared build && pnpm -F @oddzilla/db build",
+    "build:packages": "pnpm -F @oddzilla/shared build && pnpm -F @oddzilla/db prisma:generate && pnpm -F @oddzilla/db build",
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
     "lint": "pnpm -r run lint",
