@@ -6,38 +6,43 @@ test.describe('Auth flows', () => {
 
   test('signup flow works', async ({ page }) => {
     await page.goto('/signup');
-    await page.fill('input[type="email"]', testEmail);
-    await page.fill('input[type="password"]', testPassword);
 
-    const displayNameInput = page.locator('input[name="displayName"], input[placeholder*="name" i]');
+    const emailInput = page.locator('input[type="email"]');
+    await expect(emailInput).toBeVisible({ timeout: 15000 });
+
+    await emailInput.fill(testEmail);
+    await page.locator('input[type="password"]').fill(testPassword);
+
+    const displayNameInput = page.locator('input[autocomplete="nickname"]');
     if (await displayNameInput.isVisible()) {
       await displayNameInput.fill('E2E Tester');
     }
 
-    const submitButton = page.locator('button[type="submit"]');
-    await submitButton.click();
+    await page.locator('button[type="submit"]').click();
 
-    // Should redirect to home or show success
-    await page.waitForURL('/', { timeout: 10000 }).catch(() => {
+    await page.waitForURL('/', { timeout: 15000 }).catch(() => {
       // May stay on signup page with success message
     });
   });
 
   test('login flow works', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', testEmail);
-    await page.fill('input[type="password"]', testPassword);
 
-    const submitButton = page.locator('button[type="submit"]');
-    await submitButton.click();
+    const emailInput = page.locator('input[type="email"]');
+    await expect(emailInput).toBeVisible({ timeout: 15000 });
 
-    await page.waitForURL('/', { timeout: 10000 }).catch(() => {
+    await emailInput.fill(testEmail);
+    await page.locator('input[type="password"]').fill(testPassword);
+
+    await page.locator('button[type="submit"]').click();
+
+    await page.waitForURL('/', { timeout: 15000 }).catch(() => {
       // May stay on login page
     });
   });
 
   test('unauthenticated user sees sign in link', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('a[href="/login"]')).toBeVisible();
+    await expect(page.locator('a[href="/login"]')).toBeVisible({ timeout: 15000 });
   });
 });

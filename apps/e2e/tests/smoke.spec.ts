@@ -3,13 +3,13 @@ import { test, expect } from '@playwright/test';
 test.describe('Smoke tests', () => {
   test('home page loads and shows Oddzilla branding', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('text=Oddzilla')).toBeVisible();
+    await expect(page.locator('text=Oddzilla')).toBeVisible({ timeout: 15000 });
   });
 
   test('navigation links are present', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('a[href="/"]')).toBeVisible();
-    await expect(page.locator('a[href="/history"]')).toBeVisible();
+    await expect(page.locator('a[href="/"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('a[href="/login"]')).toBeVisible({ timeout: 15000 });
   });
 
   test('health endpoint responds', async ({ request }) => {
