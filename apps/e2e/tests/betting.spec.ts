@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test.describe('Betting flow', () => {
   test('matches page shows live matches', async ({ page }) => {
