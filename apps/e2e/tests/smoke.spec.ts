@@ -9,7 +9,9 @@ test.describe('Smoke tests', () => {
   test('navigation links are present', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('link', { name: 'Oddzilla' })).toBeVisible({ timeout: 15000 });
-    await expect(page.locator('a[href="/login"]')).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByRole('banner').getByRole('link', { name: 'Sign in' }),
+    ).toBeVisible({ timeout: 15000 });
   });
 
   test('health endpoint responds', async ({ request }) => {
