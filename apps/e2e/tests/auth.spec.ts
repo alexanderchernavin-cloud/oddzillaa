@@ -43,6 +43,8 @@ test.describe('Auth flows', () => {
 
   test('unauthenticated user sees sign in link', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('a[href="/login"]')).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByRole('banner').getByRole('link', { name: 'Sign in' }),
+    ).toBeVisible({ timeout: 15000 });
   });
 });
