@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_ENV: test
+  DATABASE_URL: postgresql://oddzilla:oddzilla@localhost:5432/oddzilla_test
+  REDIS_URL: redis://localhost:6379
+  RABBITMQ_URL: amqp://guest:guest@localhost:5672
+  JWT_ACCESS_SECRET: ci-test-access-secret-at-least-32-chars-long
+  JWT_REFRESH_SECRET: ci-test-refresh-secret-at-least-32-chars-long
+  ENABLE_MOCK_FEED: 'false'
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: oddzilla
+          POSTGRES_PASSWORD: oddzilla
+          POSTGRES_DB: oddzilla_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+      rabbitmq:
+        image: rabbitmq:3.13-management-alpine
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 5
+        ports:
+          - 5672:5672
+          - 15672:15672
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: pnpm build:packages
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Run database migrations
+        run: pnpm db:migrate
+
+      - name: Seed database
+        run: pnpm db:seed
+
+      - name: API tests (Vitest)
+        run: pnpm -F @oddzilla/api test
+
+      - name: Install Playwright browsers
+        run: pnpm -F @oddzilla/e2e exec playwright install --with-deps chromium
+
+      - name: E2E tests (Playwright)
+        run: pnpm e2e
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: apps/e2e/test-results/
+          retention-days: 7

@@ -1,0 +1,482 @@
+// Oddzilla database schema - Phase 1
+// Hierarchy: Sport -> Category -> Tournament -> Match -> Market -> Outcome
+// Esports feed has no Category; a synthetic Category (name = sport name) is seeded per sport.
+// Money fields use Decimal(24, 8) to accommodate USDT's 6 decimals with headroom.
+// All feed-sourced entities carry (feedId, source) unique pairs for automapping.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Users, auth, money ----------
+
+enum UserRole {
+  user
+  admin
+}
+
+enum UserStatus {
+  active
+  blocked
+}
+
+model User {
+  id                    String     @id @default(uuid()) @db.Uuid
+  email                 String     @unique
+  passwordHash          String
+  displayName           String
+  role                  UserRole   @default(user)
+  status                UserStatus @default(active)
+  globalLimitUsdt       Decimal    @default("0") @db.Decimal(24, 8)
+  betDelaySeconds       Int        @default(0)
+  mustChangePassword    Boolean    @default(false)
+  emailVerified         Boolean    @default(false)
+  emailVerifyToken      String?
+  resetPasswordToken    String?
+  resetPasswordExpires  DateTime?
+  selfExcludedUntil     DateTime?
+  dailyDepositLimit     Decimal?   @db.Decimal(24, 8)
+  weeklyDepositLimit    Decimal?   @db.Decimal(24, 8)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  lastLoginAt           DateTime?
+
+  wallet              Wallet?
+  transactions        Transaction[]
+  tickets             Ticket[]
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]           @relation("AuditActor")
+  depositAddresses    DepositAddress[]
+  withdrawalRequests  WithdrawalRequest[]
+
+  @@index([status])
+}
+
+model Wallet {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @unique @db.Uuid
+  usdtBalance   Decimal  @default("0") @db.Decimal(24, 8)
+  lockedBalance Decimal  @default("0") @db.Decimal(24, 8)
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum TransactionType {
+  deposit
+  withdrawal
+  stake
+  payout
+  adjustment
+}
+
+enum TransactionStatus {
+  pending
+  confirmed
+  rejected
+  failed
+}
+
+model Transaction {
+  id          String            @id @default(uuid()) @db.Uuid
+  userId      String            @db.Uuid
+  type        TransactionType
+  amountUsdt  Decimal           @db.Decimal(24, 8)
+  status      TransactionStatus @default(pending)
+  txHash      String?
+  referenceId String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([txHash])
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  tokenHash  String    @unique
+  familyId   String    @db.Uuid
+  issuedAt   DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String?   @db.Uuid
+  userAgent  String?
+  ipAddress  String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+// ---------- Deposit / Withdrawal ----------
+
+model DepositAddress {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  network   String   @default("TRC20")
+  address   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, network])
+  @@index([address])
+}
+
+enum WithdrawalStatus {
+  pending
+  approved
+  rejected
+  completed
+}
+
+model WithdrawalRequest {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @db.Uuid
+  amountUsdt Decimal          @db.Decimal(24, 8)
+  toAddress  String
+  network    String           @default("TRC20")
+  status     WithdrawalStatus @default(pending)
+  txHash     String?
+  reviewedBy String?          @db.Uuid
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status])
+}
+
+// ---------- Feed hierarchy ----------
+
+enum FeedSource {
+  oddin
+  manual
+}
+
+model Sport {
+  id         String     @id @default(uuid()) @db.Uuid
+  feedId     String
+  source     FeedSource
+  name       String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  categories Category[]
+
+  @@unique([source, feedId])
+}
+
+model Category {
+  id        String     @id @default(uuid()) @db.Uuid
+  sportId   String     @db.Uuid
+  feedId    String?
+  source    FeedSource
+  name      String
+  synthetic Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  sport       Sport        @relation(fields: [sportId], references: [id], onDelete: Cascade)
+  tournaments Tournament[]
+
+  @@unique([source, sportId, feedId])
+  @@index([sportId])
+}
+
+model Tournament {
+  id         String     @id @default(uuid()) @db.Uuid
+  categoryId String     @db.Uuid
+  feedId     String
+  source     FeedSource
+  name       String
+  startDate  DateTime?
+  endDate    DateTime?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  matches  Match[]
+
+  @@unique([source, feedId])
+  @@index([categoryId])
+}
+
+enum MatchStatus {
+  scheduled
+  live
+  finished
+  cancelled
+  postponed
+}
+
+model Match {
+  id            String      @id @default(uuid()) @db.Uuid
+  tournamentId  String      @db.Uuid
+  feedId        String
+  source        FeedSource
+  homeName      String
+  awayName      String
+  startTime     DateTime
+  status        MatchStatus @default(scheduled)
+  homeScore     Int?
+  awayScore     Int?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  markets    Market[]
+
+  @@unique([source, feedId])
+  @@index([tournamentId])
+  @@index([startTime])
+}
+
+enum MarketType {
+  match_winner
+  map_winner
+}
+
+enum MarketStatus {
+  open
+  suspended
+  settled
+  cancelled
+}
+
+model Market {
+  id         String       @id @default(uuid()) @db.Uuid
+  matchId    String       @db.Uuid
+  feedId     String
+  source     FeedSource
+  type       MarketType
+  specifier  String   @default("")
+  status     MarketStatus @default(open)
+  favourite  Boolean      @default(false)
+  feedStatus Int?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  match    Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  outcomes Outcome[]
+
+  @@unique([source, feedId, matchId, specifier])
+  @@index([matchId])
+}
+
+enum OutcomeStatus {
+  active
+  inactive
+}
+
+enum OutcomeResult {
+  unsettled
+  won
+  lost
+  void
+}
+
+model Outcome {
+  id            String        @id @default(uuid()) @db.Uuid
+  marketId      String        @db.Uuid
+  feedId        String
+  source        FeedSource
+  label         String
+  feedPrice     Decimal?      @db.Decimal(24, 8)
+  adjustedPrice Decimal?      @db.Decimal(24, 8)
+  status        OutcomeStatus @default(active)
+  result        OutcomeResult @default(unsettled)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  market     Market             @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  selections TicketSelection[]
+
+  @@unique([source, feedId, marketId])
+  @@index([marketId])
+}
+
+// ---------- Tickets ----------
+
+enum TicketStatus {
+  pending
+  accepted
+  rejected
+  won
+  lost
+  void
+  cashout
+}
+
+enum SelectionStatus {
+  pending
+  won
+  lost
+  void
+}
+
+model Ticket {
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String       @db.Uuid
+  stakeUsdt   Decimal      @db.Decimal(24, 8)
+  totalOdds   Decimal      @db.Decimal(24, 8)
+  status      TicketStatus @default(pending)
+  submittedAt DateTime     @default(now())
+  acceptedAt  DateTime?
+  settledAt   DateTime?
+  rejectReason String?
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selections TicketSelection[]
+
+  @@index([userId, status])
+  @@index([submittedAt])
+}
+
+model TicketSelection {
+  id            String          @id @default(uuid()) @db.Uuid
+  ticketId      String          @db.Uuid
+  outcomeId     String          @db.Uuid
+  priceAtSubmit Decimal         @db.Decimal(24, 8)
+  status        SelectionStatus @default(pending)
+
+  ticket  Ticket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  outcome Outcome @relation(fields: [outcomeId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId])
+  @@index([outcomeId])
+}
+
+// ---------- Oddin producers, feed inbox, recovery ----------
+
+enum ProducerStatus {
+  up
+  down
+  unknown
+}
+
+model Producer {
+  id                   Int            @id
+  name                 String         @unique
+  description          String?
+  active               Boolean        @default(true)
+  status               ProducerStatus @default(unknown)
+  lastAliveAt          DateTime?
+  lastMessageTimestamp DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  feedMessages      FeedMessage[]
+  recoverySessions  RecoverySession[]
+  settlementEvents  SettlementEvent[]
+}
+
+enum FeedMessageType {
+  alive
+  odds_change
+  fixture_change
+  bet_cancel
+  bet_settlement
+  rollback_bet_cancel
+  rollback_bet_settlement
+  snapshot_complete
+}
+
+model FeedMessage {
+  id              String          @id @default(uuid()) @db.Uuid
+  producerId      Int
+  messageType     FeedMessageType
+  routingKey      String
+  sourceMessageId String
+  requestId       String?
+  payload         Json
+  receivedAt      DateTime        @default(now())
+  processedAt     DateTime?
+  processingError String?
+
+  producer Producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+
+  @@unique([producerId, messageType, sourceMessageId])
+  @@index([producerId, receivedAt])
+  @@index([processedAt])
+}
+
+enum RecoveryStatus {
+  requested
+  in_progress
+  completed
+  failed
+}
+
+model RecoverySession {
+  id              String         @id @default(uuid()) @db.Uuid
+  producerId      Int
+  requestId       String         @unique
+  afterTimestamp  DateTime?
+  status          RecoveryStatus @default(requested)
+  startedAt       DateTime       @default(now())
+  completedAt     DateTime?
+  failureReason   String?
+
+  producer Producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+
+  @@index([producerId, status])
+}
+
+// Projection of bet_settlement / rollback_bet_settlement FeedMessages, kept as a
+// separate table so the settlement engine can scan a narrow index.
+enum SettlementEventKind {
+  settlement
+  rollback
+}
+
+model SettlementEvent {
+  id              String              @id @default(uuid()) @db.Uuid
+  producerId      Int
+  kind            SettlementEventKind
+  sourceMessageId String
+  payload         Json
+  receivedAt      DateTime            @default(now())
+  processedAt     DateTime?
+  processingError String?
+
+  producer Producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+
+  @@unique([producerId, sourceMessageId])
+  @@index([processedAt])
+}
+
+// ---------- Admin & audit ----------
+
+model AdminSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  targetType String?
+  targetId   String?
+  before     Json?
+  after      Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+}

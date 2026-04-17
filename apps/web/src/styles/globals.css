@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 10 10 10;
+  --fg: 245 245 245;
+  --muted: 161 161 170;
+  --accent: 229 255 63;
+  --border: 38 38 38;
+  --surface: 15 15 15;
+  --card: 20 20 20;
+  --card-hover: 28 28 28;
+  --foreground: 245 245 245;
+  --danger: 239 68 68;
+  --success: 34 197 94;
+}
+
+html,
+body {
+  background-color: rgb(var(--bg));
+  color: rgb(var(--fg));
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+::selection {
+  background: rgb(var(--accent));
+  color: rgb(var(--bg));
+}
+
+button {
+  font: inherit;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--border)) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgb(var(--border));
+    border-radius: 2px;
+  }
+}

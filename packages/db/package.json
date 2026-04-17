@@ -1,0 +1,34 @@
+{
+  "name": "@oddzilla/db",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "src", "prisma"],
+  "scripts": {
+    "prisma:generate": "dotenv -e ../../.env -- prisma generate",
+    "prisma:migrate": "dotenv -e ../../.env -- prisma migrate dev",
+    "prisma:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
+    "prisma:studio": "dotenv -e ../../.env -- prisma studio",
+    "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "lint": "echo 'no lint for @oddzilla/db'",
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "argon2": "^0.41.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.9",
+    "dotenv": "^16.4.7",
+    "dotenv-cli": "^7.4.4",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "prisma": {
+    "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts"
+  }
+}
