@@ -1,9 +1,6 @@
-name: oddzilla
-
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: oddzilla-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-oddzilla}
@@ -18,12 +15,9 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    networks:
-      - oddzilla
 
   redis:
     image: redis:7-alpine
-    container_name: oddzilla-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     ports:
@@ -35,12 +29,9 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    networks:
-      - oddzilla
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
-    container_name: oddzilla-rabbitmq
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-oddzilla}
@@ -55,14 +46,8 @@ services:
       interval: 10s
       timeout: 10s
       retries: 10
-    networks:
-      - oddzilla
 
 volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
-
-networks:
-  oddzilla:
-    driver: bridge

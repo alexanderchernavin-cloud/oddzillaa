@@ -55,8 +55,9 @@ docs/
 
 ```bash
 cp .env.example .env
+# Edit .env — generate JWT secrets: openssl rand -hex 32
 
-docker compose -f infra/docker-compose.yml up -d
+pnpm infra:up        # Postgres, Redis, RabbitMQ via Docker
 
 pnpm install
 
@@ -66,7 +67,7 @@ pnpm db:seed
 pnpm dev
 ```
 
-Services after `pnpm dev`:
+Services after `pnpm dev` (default ports):
 
 - Web: [http://localhost:3000](http://localhost:3000)
 - API: [http://localhost:3001/api](http://localhost:3001/api)
@@ -74,6 +75,8 @@ Services after `pnpm dev`:
 - Postgres: `localhost:5432` (user/db `oddzilla`)
 - Redis: `localhost:6379`
 - RabbitMQ: `localhost:5672`, management UI on `localhost:15672`
+
+All ports are configurable via `.env` — see **Collaboration** below.
 
 ## Common scripts
 
@@ -135,6 +138,55 @@ See [docs/DEPLOY.md](docs/DEPLOY.md) for the full runbook using `docker-compose.
 - KYC / age verification
 - News/content section
 - Multi-language support
+
+## Collaboration
+
+### Git workflow
+
+- **`main`** — stable, CI-passing, protected. Never push directly.
+- **`feat/*`** or **`<name>/*`** — feature branches (e.g. `alex/live-parlays`, `sasha/admin-charts`).
+- Open a **Pull Request** into `main`. CI runs automatically on every PR.
+- Merge after review and green CI.
+
+```bash
+git checkout -b feat/my-feature
+# ... work ...
+git push -u origin HEAD
+gh pr create --title "Add my feature"
+```
+
+### Running multiple instances on the same server
+
+If two or more developers share a machine (e.g. a remote dev server), each must use **different ports** and a **separate Docker Compose project name** to avoid collisions.
+
+1. Clone the repo into a separate directory per developer.
+2. Copy `.env.example` to `.env` and adjust the values below.
+
+| Variable | Dev 1 (default) | Dev 2 | Dev 3 |
+|---|---|---|---|
+| `COMPOSE_PROJECT_NAME` | `oddzilla` | `oddzilla-sasha` | `oddzilla-dev3` |
+| `WEB_PORT` | 3000 | 4000 | 5000 |
+| `API_PORT` | 3001 | 4001 | 5001 |
+| `POSTGRES_PORT` | 5432 | 5433 | 5434 |
+| `REDIS_PORT` | 6379 | 6380 | 6381 |
+| `RABBITMQ_PORT` | 5672 | 5673 | 5674 |
+| `RABBITMQ_MGMT_PORT` | 15672 | 15673 | 15674 |
+
+When changing ports, also update these derived variables to match:
+
+```
+DATABASE_URL=postgresql://oddzilla:oddzilla@localhost:<POSTGRES_PORT>/oddzilla?schema=public
+REDIS_URL=redis://localhost:<REDIS_PORT>
+RABBITMQ_URL=amqp://oddzilla:oddzilla@localhost:<RABBITMQ_PORT>
+WEB_ORIGIN=http://localhost:<WEB_PORT>
+NEXT_PUBLIC_API_URL=http://localhost:<API_PORT>
+```
+
+Then run `pnpm infra:up && pnpm dev` as usual. Each instance gets its own Docker containers, volumes, and database.
+
+### Running locally (single developer)
+
+No changes needed — the defaults in `.env.example` work out of the box. Each developer on their own machine just runs the standard quick start.
 
 ## Architecture
 
