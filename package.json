@@ -24,7 +24,7 @@
     "db:seed": "pnpm -F @oddzilla/db seed",
     "db:studio": "pnpm -F @oddzilla/db prisma:studio",
     "test": "pnpm -r run test",
-    "e2e": "pnpm -F @oddzilla/e2e playwright test"
+    "e2e": "pnpm -F @oddzilla/e2e test"
   },
   "devDependencies": {
     "prettier": "^3.3.3",
