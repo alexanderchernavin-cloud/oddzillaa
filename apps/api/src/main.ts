@@ -15,8 +15,11 @@ async function bootstrap(): Promise<void> {
   app.setGlobalPrefix('api');
   app.use(helmet());
   app.use(cookieParser());
+  const corsOrigins = env.WEB_ORIGIN.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   app.enableCors({
-    origin: env.WEB_ORIGIN,
+    origin: corsOrigins.length > 1 ? corsOrigins : corsOrigins[0],
     credentials: true,
   });
   app.useGlobalPipes(
@@ -27,7 +30,7 @@ async function bootstrap(): Promise<void> {
 
   await app.listen(env.API_PORT);
   new Logger('Bootstrap').log(
-    `Oddzilla API listening on http://localhost:${env.API_PORT}/api (CORS origin ${env.WEB_ORIGIN})`,
+    `Oddzilla API listening on http://localhost:${env.API_PORT}/api (CORS origins ${corsOrigins.join(', ')})`,
   );
 }
 

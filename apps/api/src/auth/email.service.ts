@@ -22,7 +22,8 @@ export class EmailService {
   }
 
   async sendVerificationEmail(email: string, token: string): Promise<void> {
-    const link = `${this.env.WEB_ORIGIN}/verify-email?token=${token}`;
+    const origin = (this.env.WEB_ORIGIN.split(',')[0] ?? this.env.WEB_ORIGIN).trim();
+    const link = `${origin}/verify-email?token=${token}`;
     try {
       await this.transporter.sendMail({
         from: this.env.SMTP_FROM,
@@ -42,7 +43,8 @@ export class EmailService {
   }
 
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
-    const link = `${this.env.WEB_ORIGIN}/reset-password?token=${token}`;
+    const origin = (this.env.WEB_ORIGIN.split(',')[0] ?? this.env.WEB_ORIGIN).trim();
+    const link = `${origin}/reset-password?token=${token}`;
     try {
       await this.transporter.sendMail({
         from: this.env.SMTP_FROM,
