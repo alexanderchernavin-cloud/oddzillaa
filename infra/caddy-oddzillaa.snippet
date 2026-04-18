@@ -1,0 +1,54 @@
+
+# ── oddzillaa (instance A) — public frontend ──────────────────────────────
+a.oddzilla.cc {
+	encode zstd gzip
+	import security_headers
+
+	handle /api/* {
+		reverse_proxy oddzillaa-api:3001
+	}
+
+	handle /socket.io* {
+		reverse_proxy oddzillaa-api:3001
+	}
+
+	handle {
+		import web_csp
+		reverse_proxy oddzillaa-web:3000
+	}
+}
+
+# ── oddzillaa — admin backoffice ──────────────────────────────────────────
+aadmin.oddzilla.cc {
+	encode zstd gzip
+	import security_headers
+
+	redir / /admin 302
+
+	handle /api/* {
+		reverse_proxy oddzillaa-api:3001
+	}
+
+	handle /socket.io* {
+		reverse_proxy oddzillaa-api:3001
+	}
+
+	handle {
+		import web_csp
+		reverse_proxy oddzillaa-web:3000
+	}
+}
+
+# ── oddzillaa — dedicated API hostname ────────────────────────────────────
+aapi.oddzilla.cc {
+	encode zstd gzip
+	import security_headers
+
+	handle /socket.io* {
+		reverse_proxy oddzillaa-api:3001
+	}
+
+	handle {
+		reverse_proxy oddzillaa-api:3001
+	}
+}
