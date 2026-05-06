@@ -1,7 +1,7 @@
 // Enums mirrored from the Prisma schema. Kept string-literal so they serialize
 // identically across the wire and remain valid Zod enum inputs.
 
-export const UserRole = { user: 'user', admin: 'admin' } as const;
+export const UserRole = { user: 'user', admin: 'admin', seed: 'seed' } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
 export const UserStatus = { active: 'active', blocked: 'blocked' } as const;
