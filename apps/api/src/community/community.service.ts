@@ -115,15 +115,20 @@ export class CommunityService {
     page: number;
     pageSize: number;
   }): Promise<CommunityFeedDto> {
-    const where = {
+    // Visibility + sport filter is hoisted; the settled-status filter is
+    // inlined at each call site so Prisma's contextual typing narrows the
+    // string-literal array to TicketStatus[].
+    const visibilityWhere = {
       user: { ticketsPublic: true, nickname: { not: null } },
-      status: { in: ['won', 'lost', 'void'] },
       ...(opts.sportId ? { sportIds: { has: opts.sportId } } : {}),
     };
 
     const [items, total] = await Promise.all([
       this.prisma.communityTicket.findMany({
-        where,
+        where: {
+          ...visibilityWhere,
+          status: { in: ['won', 'lost', 'void'] },
+        },
         orderBy: { settledAt: 'desc' },
         skip: (opts.page - 1) * opts.pageSize,
         take: opts.pageSize,
@@ -140,7 +145,12 @@ export class CommunityService {
           },
         },
       }),
-      this.prisma.communityTicket.count({ where }),
+      this.prisma.communityTicket.count({
+        where: {
+          ...visibilityWhere,
+          status: { in: ['won', 'lost', 'void'] },
+        },
+      }),
     ]);
 
     return {
