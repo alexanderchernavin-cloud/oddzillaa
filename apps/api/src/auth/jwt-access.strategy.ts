@@ -5,16 +5,18 @@ import { ENV_TOKEN } from '../config/config.module';
 import type { Env } from '../config/env.schema';
 import { PrismaService } from '../prisma/prisma.service';
 
+export type AuthRole = 'user' | 'admin' | 'seed';
+
 export interface JwtAccessPayload {
   sub: string;
   email: string;
-  role: 'user' | 'admin';
+  role: AuthRole;
 }
 
 export interface AuthenticatedUser {
   id: string;
   email: string;
-  role: 'user' | 'admin';
+  role: AuthRole;
   mustChangePassword: boolean;
   status: 'active' | 'blocked';
 }
