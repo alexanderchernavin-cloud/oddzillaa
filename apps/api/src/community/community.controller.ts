@@ -15,6 +15,7 @@ import type { Request } from 'express';
 import {
   updateCommunityProfileInput,
   updateVisibilityInput,
+  type CommunityFeedDto,
   type CommunityMeDto,
   type CommunityProfileDto,
   type ProfileTicketsDto,
@@ -30,6 +31,26 @@ type AuthedRequest = Request & { user: AuthenticatedUser };
 @Controller('community')
 export class CommunityController {
   constructor(private readonly community: CommunityService) {}
+
+  @Get('feed')
+  getFeed(
+    @Query('sort') sort?: string,
+    @Query('sportId') sportId?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ): Promise<CommunityFeedDto> {
+    // Phase C-2 only ships chronological sort. Accept the query value for
+    // forward compat, fall through to 'recent' for unknown values.
+    const sortBy = sort === 'recent' ? 'recent' : 'recent';
+    const p = page ? Math.max(1, parseInt(page, 10)) : 1;
+    const ps = pageSize ? Math.min(50, Math.max(1, parseInt(pageSize, 10))) : 20;
+    return this.community.getFeed({
+      sortBy,
+      sportId: sportId || undefined,
+      page: p,
+      pageSize: ps,
+    });
+  }
 
   @Get('users/:nickname/profile')
   getProfile(@Param('nickname') nickname: string): Promise<CommunityProfileDto> {

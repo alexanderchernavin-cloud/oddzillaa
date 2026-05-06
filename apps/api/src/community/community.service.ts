@@ -1,18 +1,25 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
+  CommunityFeedDto,
+  CommunityFeedSort,
   CommunityMeDto,
   CommunityProfileDto,
   ProfileTicketsDto,
   UpdateCommunityProfileInput,
 } from '@oddzilla/shared';
 
+const PROFILE_STATS_SAMPLE = 100;
+
 @Injectable()
 export class CommunityService {
+  private readonly logger = new Logger(CommunityService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async getProfileByNickname(nickname: string): Promise<CommunityProfileDto> {
@@ -21,25 +28,20 @@ export class CommunityService {
       throw new NotFoundException('Profile not found');
     }
 
-    // Stats computed over a recent sample of settled tickets. The
-    // CommunityTicket projection in Phase C-2 replaces this scan with
-    // an indexed denormalised read.
-    const tickets = await this.prisma.ticket.findMany({
-      where: { userId: user.id, status: { in: ['won', 'lost', 'void'] } },
+    const sample = await this.prisma.communityTicket.findMany({
+      where: { userId: user.id },
       orderBy: { settledAt: 'desc' },
-      take: 100,
+      take: PROFILE_STATS_SAMPLE,
+      select: { status: true, stakeUsdt: true, payoutUsdt: true },
     });
 
-    const settled = tickets.filter((t) => t.status !== 'void');
+    const settled = sample.filter((t) => t.status !== 'void');
     const won = settled.filter((t) => t.status === 'won');
     const winRate = settled.length === 0 ? 0 : won.length / settled.length;
 
     const totalStake = settled.reduce((acc, t) => acc + Number(t.stakeUsdt), 0);
-    const totalReturn = won.reduce(
-      (acc, t) => acc + Number(t.stakeUsdt) * Number(t.totalOdds),
-      0,
-    );
-    const roi = totalStake === 0 ? 0 : (totalReturn - totalStake) / totalStake;
+    const totalPayout = settled.reduce((acc, t) => acc + Number(t.payoutUsdt), 0);
+    const roi = totalStake === 0 ? 0 : (totalPayout - totalStake) / totalStake;
 
     return {
       nickname: user.nickname!,
@@ -63,55 +65,183 @@ export class CommunityService {
       throw new NotFoundException('Profile not found');
     }
 
-    const [tickets, total] = await Promise.all([
-      this.prisma.ticket.findMany({
-        where: { userId: user.id, status: { in: ['won', 'lost', 'void'] } },
+    const where = { userId: user.id };
+    const [items, total] = await Promise.all([
+      this.prisma.communityTicket.findMany({
+        where,
         orderBy: { settledAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
         include: {
-          selections: {
+          ticket: {
             include: {
-              outcome: { include: { market: { include: { match: true } } } },
+              selections: {
+                include: {
+                  outcome: { include: { market: { include: { match: true } } } },
+                },
+              },
             },
           },
         },
       }),
-      this.prisma.ticket.count({
-        where: { userId: user.id, status: { in: ['won', 'lost', 'void'] } },
-      }),
+      this.prisma.communityTicket.count({ where }),
     ]);
 
     return {
-      tickets: tickets.map((t) => {
-        const stake = Number(t.stakeUsdt);
-        const odds = Number(t.totalOdds);
-        const payout =
-          t.status === 'won'
-            ? Number((stake * odds).toFixed(2))
-            : t.status === 'void'
-              ? stake
-              : 0;
-        return {
-          id: t.id,
-          status: t.status as 'won' | 'lost' | 'void',
-          stakeUsdt: stake,
-          totalOdds: odds,
-          payoutUsdt: payout,
-          settledAt: t.settledAt!.toISOString(),
-          selections: t.selections.map((sel) => ({
-            outcomeLabel: sel.outcome.label,
-            matchHome: sel.outcome.market.match.homeName,
-            matchAway: sel.outcome.market.match.awayName,
-            priceAtSubmit: Number(sel.priceAtSubmit),
-            status: sel.status,
-          })),
-        };
-      }),
+      tickets: items.map((ct) => ({
+        id: ct.ticketId,
+        status: ct.status as 'won' | 'lost' | 'void',
+        stakeUsdt: Number(ct.stakeUsdt),
+        totalOdds: Number(ct.totalOdds),
+        payoutUsdt: Number(ct.payoutUsdt),
+        settledAt: ct.settledAt.toISOString(),
+        selections: ct.ticket.selections.map((sel) => ({
+          outcomeLabel: sel.outcome.label,
+          matchHome: sel.outcome.market.match.homeName,
+          matchAway: sel.outcome.market.match.awayName,
+          priceAtSubmit: Number(sel.priceAtSubmit),
+          status: sel.status,
+        })),
+      })),
       total,
       page,
       pageSize,
     };
+  }
+
+  async getFeed(opts: {
+    sortBy: CommunityFeedSort;
+    sportId?: string;
+    page: number;
+    pageSize: number;
+  }): Promise<CommunityFeedDto> {
+    // Visibility + sport filter is hoisted; the settled-status filter is
+    // inlined at each call site so Prisma's contextual typing narrows the
+    // string-literal array to TicketStatus[].
+    const visibilityWhere = {
+      user: { ticketsPublic: true, nickname: { not: null } },
+      ...(opts.sportId ? { sportIds: { has: opts.sportId } } : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.communityTicket.findMany({
+        where: {
+          ...visibilityWhere,
+          status: { in: ['won', 'lost', 'void'] },
+        },
+        orderBy: { settledAt: 'desc' },
+        skip: (opts.page - 1) * opts.pageSize,
+        take: opts.pageSize,
+        include: {
+          user: { select: { displayName: true, nickname: true } },
+          ticket: {
+            include: {
+              selections: {
+                include: {
+                  outcome: { include: { market: { include: { match: true } } } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.communityTicket.count({
+        where: {
+          ...visibilityWhere,
+          status: { in: ['won', 'lost', 'void'] },
+        },
+      }),
+    ]);
+
+    return {
+      tickets: items.map((ct) => ({
+        id: ct.id,
+        author: {
+          displayName: ct.user.displayName,
+          // The where-clause guarantees nickname is not null here.
+          nickname: ct.user.nickname!,
+        },
+        status: ct.status as 'won' | 'lost' | 'void',
+        stakeUsdt: Number(ct.stakeUsdt),
+        payoutUsdt: Number(ct.payoutUsdt),
+        totalOdds: Number(ct.totalOdds),
+        numLegs: ct.numLegs,
+        settledAt: ct.settledAt.toISOString(),
+        selections: ct.ticket.selections.map((sel) => ({
+          outcomeLabel: sel.outcome.label,
+          matchHome: sel.outcome.market.match.homeName,
+          matchAway: sel.outcome.market.match.awayName,
+          priceAtSubmit: Number(sel.priceAtSubmit),
+          status: sel.status,
+        })),
+      })),
+      total,
+      page: opts.page,
+      pageSize: opts.pageSize,
+    };
+  }
+
+  // Called by SettlementService after a ticket reaches a terminal status.
+  // Idempotent on Ticket.id thanks to CommunityTicket.ticketId @unique.
+  async recordSettledTicket(ticketId: string): Promise<void> {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: {
+        selections: {
+          include: {
+            outcome: {
+              include: {
+                market: {
+                  include: {
+                    match: {
+                      include: {
+                        tournament: { include: { category: true } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!ticket || !ticket.settledAt) return;
+    if (ticket.status !== 'won' && ticket.status !== 'lost' && ticket.status !== 'void') return;
+
+    const stake = Number(ticket.stakeUsdt);
+    const odds = Number(ticket.totalOdds);
+    const payout =
+      ticket.status === 'won'
+        ? Number((stake * odds).toFixed(2))
+        : ticket.status === 'void'
+          ? stake
+          : 0;
+
+    const sportIds = Array.from(
+      new Set(
+        ticket.selections.map(
+          (s) => s.outcome.market.match.tournament.category.sportId,
+        ),
+      ),
+    );
+
+    const data = {
+      userId: ticket.userId,
+      stakeUsdt: ticket.stakeUsdt,
+      payoutUsdt: payout,
+      totalOdds: ticket.totalOdds,
+      numLegs: ticket.selections.length,
+      status: ticket.status,
+      sportIds,
+      settledAt: ticket.settledAt,
+    };
+
+    await this.prisma.communityTicket.upsert({
+      where: { ticketId: ticket.id },
+      create: { ticketId: ticket.id, ...data },
+      update: data,
+    });
   }
 
   async getMe(userId: string): Promise<CommunityMeDto> {

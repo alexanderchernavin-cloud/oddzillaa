@@ -71,3 +71,34 @@ export const updateCommunityProfileInput = z.object({
     .optional(),
 });
 export type UpdateCommunityProfileInput = z.infer<typeof updateCommunityProfileInput>;
+
+// ---------- Community feed (Phase C-2) ----------
+
+// Card on the chronological feed. Author win-rate / badge-count are added
+// in Phase C-3 when scoring lands.
+export const communityFeedTicketDto = z.object({
+  id: z.string().uuid(),
+  author: z.object({
+    displayName: z.string(),
+    nickname: z.string(),
+  }),
+  status: z.enum(['won', 'lost', 'void']),
+  stakeUsdt: z.number(),
+  payoutUsdt: z.number(),
+  totalOdds: z.number(),
+  numLegs: z.number().int(),
+  settledAt: z.string().datetime(),
+  selections: z.array(profileTicketSelectionDto),
+});
+export type CommunityFeedTicketDto = z.infer<typeof communityFeedTicketDto>;
+
+export const communityFeedDto = z.object({
+  tickets: z.array(communityFeedTicketDto),
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+export type CommunityFeedDto = z.infer<typeof communityFeedDto>;
+
+export const communityFeedSort = z.enum(['recent']);
+export type CommunityFeedSort = z.infer<typeof communityFeedSort>;

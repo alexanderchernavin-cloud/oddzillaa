@@ -58,6 +58,7 @@ model User {
   auditLogs           AuditLog[]           @relation("AuditActor")
   depositAddresses    DepositAddress[]
   withdrawalRequests  WithdrawalRequest[]
+  communityTickets    CommunityTicket[]
 
   @@index([status])
 }
@@ -331,18 +332,20 @@ enum SelectionStatus {
 }
 
 model Ticket {
-  id          String       @id @default(uuid()) @db.Uuid
-  userId      String       @db.Uuid
-  stakeUsdt   Decimal      @db.Decimal(24, 8)
-  totalOdds   Decimal      @db.Decimal(24, 8)
-  status      TicketStatus @default(pending)
-  submittedAt DateTime     @default(now())
-  acceptedAt  DateTime?
-  settledAt   DateTime?
+  id           String       @id @default(uuid()) @db.Uuid
+  userId       String       @db.Uuid
+  stakeUsdt    Decimal      @db.Decimal(24, 8)
+  totalOdds    Decimal      @db.Decimal(24, 8)
+  status       TicketStatus @default(pending)
+  submittedAt  DateTime     @default(now())
+  acceptedAt   DateTime?
+  settledAt    DateTime?
   rejectReason String?
+  analysisText String?
 
-  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  selections TicketSelection[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selections      TicketSelection[]
+  communityTicket CommunityTicket?
 
   @@index([userId, status])
   @@index([submittedAt])
@@ -360,6 +363,33 @@ model TicketSelection {
 
   @@index([ticketId])
   @@index([outcomeId])
+}
+
+// ---------- Community feed projection ----------
+
+// Read-projection of settled Tickets, written by SettlementService.resolveTicket.
+// Score is recomputed in Phase C-3; for now it stays at 0 and the feed sorts by
+// settledAt only.
+model CommunityTicket {
+  id         String       @id @default(uuid()) @db.Uuid
+  ticketId   String       @unique @db.Uuid
+  userId     String       @db.Uuid
+  stakeUsdt  Decimal      @db.Decimal(24, 8)
+  payoutUsdt Decimal      @db.Decimal(24, 8)
+  totalOdds  Decimal      @db.Decimal(24, 8)
+  numLegs    Int
+  status     TicketStatus
+  sportIds   String[]     @db.Uuid
+  settledAt  DateTime
+  score      Float        @default(0)
+  createdAt  DateTime     @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([settledAt(sort: Desc)])
+  @@index([score(sort: Desc), settledAt(sort: Desc)])
+  @@index([userId, settledAt(sort: Desc)])
 }
 
 // ---------- Oddin producers, feed inbox, recovery ----------
