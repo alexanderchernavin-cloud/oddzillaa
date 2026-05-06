@@ -14,6 +14,7 @@ import { AuditService } from '../audit/audit.service';
 import { EmailService } from './email.service';
 import { ENV_TOKEN } from '../config/config.module';
 import type { Env } from '../config/env.schema';
+import type { AuthRole } from './jwt-access.strategy';
 import type { SignupInput, LoginInput, UserProfile, ChangePasswordInput } from '@oddzilla/shared';
 
 export interface AuthTokensResult {
@@ -26,7 +27,7 @@ export interface AuthTokensResult {
 interface IssueTokensArgs {
   userId: string;
   email: string;
-  role: 'user' | 'admin';
+  role: AuthRole;
   familyId?: string;
   previousTokenId?: string;
   userAgent?: string | null;

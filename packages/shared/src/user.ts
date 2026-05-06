@@ -5,7 +5,7 @@ export const userProfileSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
   displayName: z.string(),
-  role: z.enum([UserRole.user, UserRole.admin]),
+  role: z.enum([UserRole.user, UserRole.admin, UserRole.seed]),
   status: z.enum([UserStatus.active, UserStatus.blocked]),
   mustChangePassword: z.boolean(),
   createdAt: z.string().datetime(),

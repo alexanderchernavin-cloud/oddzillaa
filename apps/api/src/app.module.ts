@@ -14,6 +14,7 @@ import { MatchesModule } from './matches/matches.module';
 import { WalletModule } from './wallet/wallet.module';
 import { BettingModule } from './betting/betting.module';
 import { AdminModule } from './admin/admin.module';
+import { CommunityModule } from './community/community.module';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 
 @Module({
@@ -49,6 +50,7 @@ import { RequestIdMiddleware } from './common/request-id.middleware';
     WalletModule,
     BettingModule,
     AdminModule,
+    CommunityModule,
   ],
 })
 export class AppModule implements NestModule {

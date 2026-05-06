@@ -18,6 +18,7 @@ datasource db {
 enum UserRole {
   user
   admin
+  seed
 }
 
 enum UserStatus {
@@ -42,6 +43,10 @@ model User {
   selfExcludedUntil     DateTime?
   dailyDepositLimit     Decimal?   @db.Decimal(24, 8)
   weeklyDepositLimit    Decimal?   @db.Decimal(24, 8)
+  ticketsPublic         Boolean    @default(true)
+  nickname              String?    @unique
+  bio                   String?
+  isAi                  Boolean    @default(false)
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
   lastLoginAt           DateTime?
