@@ -11,8 +11,6 @@ import type {
   UpdateCommunityProfileInput,
 } from '@oddzilla/shared';
 
-const SETTLED_STATUSES = ['won', 'lost', 'void'] as const;
-
 @Injectable()
 export class CommunityService {
   constructor(private readonly prisma: PrismaService) {}
@@ -27,7 +25,7 @@ export class CommunityService {
     // CommunityTicket projection in Phase C-2 replaces this scan with
     // an indexed denormalised read.
     const tickets = await this.prisma.ticket.findMany({
-      where: { userId: user.id, status: { in: SETTLED_STATUSES } },
+      where: { userId: user.id, status: { in: ['won', 'lost', 'void'] } },
       orderBy: { settledAt: 'desc' },
       take: 100,
     });
@@ -67,12 +65,12 @@ export class CommunityService {
 
     const where = {
       userId: user.id,
-      status: { in: SETTLED_STATUSES },
-    };
+      status: { in: ['won', 'lost', 'void'] },
+    } as const;
 
     const [tickets, total] = await Promise.all([
       this.prisma.ticket.findMany({
-        where,
+        where: { userId: user.id, status: { in: ['won', 'lost', 'void'] } },
         orderBy: { settledAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -84,8 +82,12 @@ export class CommunityService {
           },
         },
       }),
-      this.prisma.ticket.count({ where }),
+      this.prisma.ticket.count({
+        where: { userId: user.id, status: { in: ['won', 'lost', 'void'] } },
+      }),
     ]);
+
+    void where;
 
     return {
       tickets: tickets.map((t) => {
