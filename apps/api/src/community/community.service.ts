@@ -63,11 +63,6 @@ export class CommunityService {
       throw new NotFoundException('Profile not found');
     }
 
-    const where = {
-      userId: user.id,
-      status: { in: ['won', 'lost', 'void'] },
-    } as const;
-
     const [tickets, total] = await Promise.all([
       this.prisma.ticket.findMany({
         where: { userId: user.id, status: { in: ['won', 'lost', 'void'] } },
@@ -86,8 +81,6 @@ export class CommunityService {
         where: { userId: user.id, status: { in: ['won', 'lost', 'void'] } },
       }),
     ]);
-
-    void where;
 
     return {
       tickets: tickets.map((t) => {
