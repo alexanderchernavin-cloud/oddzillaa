@@ -1,7 +1,9 @@
 import {
+  communityFeedDto,
   communityMeDto,
   communityProfileDto,
   profileTicketsDto,
+  type CommunityFeedDto,
   type CommunityMeDto,
   type CommunityProfileDto,
   type ProfileTicketsDto,
@@ -38,6 +40,21 @@ export async function getCommunityProfileTickets(
     `/community/users/${encodeURIComponent(nickname)}/tickets?page=${page}&pageSize=${pageSize}`,
     (d) => profileTicketsDto.parse(d),
   );
+}
+
+export async function getCommunityFeed(opts: {
+  sortBy?: 'recent';
+  sportId?: string;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<CommunityFeedDto> {
+  const params = new URLSearchParams();
+  if (opts.sortBy) params.set('sort', opts.sortBy);
+  if (opts.sportId) params.set('sportId', opts.sportId);
+  if (opts.page) params.set('page', String(opts.page));
+  if (opts.pageSize) params.set('pageSize', String(opts.pageSize));
+  const qs = params.toString();
+  return get(`/community/feed${qs ? '?' + qs : ''}`, (d) => communityFeedDto.parse(d));
 }
 
 function authedHeaders(token: string | null): Record<string, string> {

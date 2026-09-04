@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
+import { CommunityService } from '../community/community.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class SettlementService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly wallet: WalletService,
+    private readonly community: CommunityService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
@@ -165,6 +167,17 @@ export class SettlementService {
     } else if (finalStatus === 'void') {
       payout = stake;
       await this.wallet.payout(ticket.userId, stake);
+    }
+
+    // Write the community projection. Failure is logged but does not
+    // unwind settlement — the backfill script can recover any missed
+    // projections later.
+    try {
+      await this.community.recordSettledTicket(ticket.id);
+    } catch (err) {
+      this.logger.error(
+        `Community projection failed for ticket ${ticket.id}: ${(err as Error).message}`,
+      );
     }
 
     await this.redis.publish(

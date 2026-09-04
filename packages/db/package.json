@@ -11,6 +11,7 @@
     "prisma:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "prisma:studio": "dotenv -e ../../.env -- prisma studio",
     "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
+    "backfill:community": "dotenv -e ../../.env -- tsx scripts/backfill-community-tickets.ts",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "lint": "echo 'no lint for @oddzilla/db'",
     "build": "tsc -p tsconfig.json",

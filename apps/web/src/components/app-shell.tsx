@@ -15,6 +15,7 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Trophy,
+  Users,
 } from 'lucide-react';
 import * as auth from '../lib/auth-client';
 import { onAuthChange } from '../lib/auth-client';
@@ -104,6 +105,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {[
                   { href: '/', label: 'Live', icon: <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> },
                   { href: '/results', label: 'Results', icon: <Trophy size={13} /> },
+                  { href: '/community', label: 'Community', icon: <Users size={13} /> },
                   { href: '/history', label: 'My Bets', icon: <History size={13} /> },
                 ].map((item) => (
                   <Link
@@ -203,6 +205,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   >
                     <Trophy size={14} />
                     Results
+                  </Link>
+                  <Link
+                    href="/community"
+                    onClick={() => setSidebarOpen(false)}
+                    className="flex items-center gap-2 rounded px-3 py-2 text-xs text-muted hover:bg-card hover:text-foreground"
+                  >
+                    <Users size={14} />
+                    Community
                   </Link>
                   <Link
                     href="/history"
